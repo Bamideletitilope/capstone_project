@@ -1,50 +1,66 @@
 import {
-  Body,
   Controller,
+  Post,
   Get,
   HttpCode,
   HttpStatus,
-  Post,
+  Body,
 } from '@nestjs/common';
-import { AuthService, AuthResponse } from './auth.service';
-import { RegisterDto, LoginDto } from './dto';
-import { Public, CurrentUser } from './decorators';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { AuthService } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { Public } from './decorators/public.decorator';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { User } from './user.entity';
 
-interface JwtUser {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-}
-
-@ApiTags('Auth')
+@ApiTags('auth') // groups all routes under "auth" in Swagger UI
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'User successfully registered.' })
-  @ApiResponse({ status: 409, description: 'Email already in use.' })
-  register(@Body() registerDto: RegisterDto): Promise<AuthResponse> {
-    return this.authService.register(registerDto);
+  @ApiOperation({ summary: 'Register a new user account' })
+  @ApiResponse({
+    status: 201,
+    description: 'User registered successfully',
+    type: User,
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 409, description: 'Email already in use' })
+  register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
   @Public()
   @Post('login')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Log in a user' })
-  @ApiResponse({ status: 200, description: 'User successfully logged in.' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials.' })
-  login(@Body() loginDto: LoginDto): Promise<AuthResponse> {
-    return this.authService.login(loginDto);
+  @ApiOperation({ summary: 'Log in and receive a JWT access token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful — returns JWT token',
+  })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
+  }
+
+  @Get('profile')
+  @ApiBearerAuth('JWT-auth') // shows the padlock icon — route requires a token
+  @ApiOperation({ summary: 'Get the currently logged-in user profile' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the current user',
+    type: User,
+  })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
+  getProfile(@CurrentUser() user: any) {
+    return this.authService.getProfile(user.id);
   }
 
   @Post('logout')
@@ -56,21 +72,5 @@ export class AuthController {
     @CurrentUser() user: JwtUser,
   ): Promise<{ status: string; message: string }> {
     return this.authService.logout(user.id);
-  }
-
-  @Get('me')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user profile' })
-  @ApiResponse({ status: 200, description: 'Profile retrieved successfully.' })
-  getMe(@CurrentUser() user: JwtUser): {
-    status: string;
-    message: string;
-    user: JwtUser;
-  } {
-    return {
-      status: 'success',
-      message: 'User profile retrieved successfully.',
-      user,
-    };
   }
 }
