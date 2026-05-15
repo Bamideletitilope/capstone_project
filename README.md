@@ -112,4 +112,4 @@ The project follows a modular NestJS architecture:
 ---
 
 ## 🛡️ License
-Distributed under the MIT License.
+Distributed under the MIT License. 
